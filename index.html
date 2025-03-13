@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ハッシュ値BINGO</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .input-section {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        input {
+            flex-grow: 1;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin-left: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .result {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .current-number {
+            font-size: 80px;
+            color: #e74c3c;
+            font-weight: bold;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .history {
+            margin-top: 30px;
+        }
+        .history h2 {
+            color: #2c3e50;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        .number-list {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            min-height: 100px;
+            max-height: 300px;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+        .bingo-grid-container {
+            margin-top: 20px;
+        }
+        .bingo-header {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+        }
+        .header-cell {
+            background-color: #3498db;
+            color: white;
+            font-weight: bold;
+            font-size: 24px;
+            padding: 10px 0;
+            text-align: center;
+            border-radius: 5px 5px 0 0;
+        }
+        .bingo-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+        }
+        .bingo-column {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .bingo-cell {
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            padding: 10px 0;
+            text-align: center;
+            font-size: 18px;
+            border-radius: 2px;
+        }
+        .bingo-cell.drawn {
+            background-color: #e74c3c;
+            color: white;
+        }
+        .keyword-display {
+            font-style: italic;
+            color: #7f8c8d;
+            margin-top: 10px;
+            text-align: center;
+        }
+        .call-display {
+            font-weight: bold;
+            font-size: 24px;
+            margin-top: 5px;
+            color: #2c3e50;
+        }
+    </style>
+</head>
+<body>
+    <h1>ハッシュ値BINGO</h1>
+    <div class="container">
+        <div class="input-section">
+            <input type="text" id="keyword-input" placeholder="キーワードを入力してください">
+            <button id="generate-btn">数字を生成</button>
+        </div>
+        
+        <div class="result">
+            <div id="current-number" class="current-number">--</div>
+            <div id="keyword-display" class="keyword-display"></div>
+            <div id="call-display" class="call-display"></div>
+        </div>
+        
+        <div class="bingo-grid-container">
+            <div class="bingo-header">
+                <div class="header-cell">B</div>
+                <div class="header-cell">I</div>
+                <div class="header-cell">N</div>
+                <div class="header-cell">G</div>
+                <div class="header-cell">O</div>
+            </div>
+            
+            <div class="bingo-grid" id="bingo-grid">
+                <!-- BINGOグリッドはJavaScriptで生成されます -->
+            </div>
+        </div>
+        
+        <div class="history">
+            <h2>出現履歴</h2>
+            <div id="history-drawn" class="number-list"></div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 20px;">
+            <button id="reset-btn" style="background-color: #e74c3c;">ゲームをリセット</button>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // ビンゴボードを生成
+            const bingoGrid = document.getElementById('bingo-grid');
+            
+            // 列ごとに分けて生成（B: 1-15, I: 16-30, N: 31-45, G: 46-60, O: 61-75）
+            for (let col = 0; col < 5; col++) {
+                const columnDiv = document.createElement('div');
+                columnDiv.className = 'bingo-column';
+                
+                const start = col * 15 + 1;
+                const end = start + 14;
+                
+                for (let num = start; num <= end; num++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'bingo-cell';
+                    cell.textContent = num;
+                    cell.id = `cell-${num}`;
+                    columnDiv.appendChild(cell);
+                }
+                
+                bingoGrid.appendChild(columnDiv);
+            }
+            
+            // 初期化
+            let availableNumbers = Array.from({length: 75}, (_, i) => i + 1);
+            let drawnNumbers = [];
+            
+            // ローカルストレージから状態を復元
+            function loadFromLocalStorage() {
+                const savedAvailableNumbers = localStorage.getItem('bingoAvailableNumbers');
+                const savedDrawnNumbers = localStorage.getItem('bingoDrawnNumbers');
+                
+                if (savedAvailableNumbers && savedDrawnNumbers) {
+                    availableNumbers = JSON.parse(savedAvailableNumbers);
+                    drawnNumbers = JSON.parse(savedDrawnNumbers);
+                    
+                    // 履歴を更新
+                    if (drawnNumbers.length > 0) {
+                        document.getElementById('history-drawn').textContent = drawnNumbers.join(', ');
+                        
+                        // ビンゴボードを更新
+                        drawnNumbers.forEach(num => {
+                            const cell = document.getElementById(`cell-${num}`);
+                            if (cell) {
+                                cell.classList.add('drawn');
+                            }
+                        });
+                        
+                        // 最後に引かれた数字を表示
+                        const lastNumber = drawnNumbers[drawnNumbers.length - 1];
+                        document.getElementById('current-number').textContent = lastNumber;
+                        
+                        // 呼び出しコールを表示
+                        const columnNames = ['B', 'I', 'N', 'G', 'O'];
+                        const columnIndex = Math.floor((lastNumber - 1) / 15);
+                        const callText = `${columnNames[columnIndex]}-${lastNumber}`;
+                        document.getElementById('call-display').textContent = callText;
+                    }
+                }
+            }
+            
+            // ローカルストレージに状態を保存
+            function saveToLocalStorage() {
+                localStorage.setItem('bingoAvailableNumbers', JSON.stringify(availableNumbers));
+                localStorage.setItem('bingoDrawnNumbers', JSON.stringify(drawnNumbers));
+            }
+            
+            // ページ読み込み時に状態を復元
+            loadFromLocalStorage();
+            
+            // ハッシュ関数（シンプルなハッシュ実装）
+            function simpleHash(str) {
+                let hash = 0;
+                for (let i = 0; i < str.length; i++) {
+                    const char = str.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash; // 32ビット整数に変換
+                }
+                return Math.abs(hash);
+            }
+            
+            // 数字生成ボタンのイベントリスナー
+            document.getElementById('generate-btn').addEventListener('click', function() {
+                const keywordInput = document.getElementById('keyword-input');
+                const keyword = keywordInput.value.trim();
+                
+                if (keyword === '') {
+                    alert('キーワードを入力してください');
+                    return;
+                }
+                
+                if (availableNumbers.length === 0) {
+                    alert('すべての数字が出ました！');
+                    return;
+                }
+                
+                try {
+                    // ハッシュ値から数字を生成
+                    const hashValue = simpleHash(keyword);
+                    const index = hashValue % availableNumbers.length;
+                    const drawnNumber = availableNumbers.splice(index, 1)[0];
+                    
+                    // 結果を表示
+                    drawnNumbers.push(drawnNumber);
+                    document.getElementById('current-number').textContent = drawnNumber;
+                    document.getElementById('keyword-display').textContent = `キーワード: "${keyword}"`;
+                    
+                    // ビンゴボードを更新
+                    document.getElementById(`cell-${drawnNumber}`).classList.add('drawn');
+                    
+                    // 履歴を更新
+                    document.getElementById('history-drawn').textContent = drawnNumbers.join(', ');
+                    
+                    // 入力欄をクリア
+                    keywordInput.value = '';
+                    keywordInput.focus();
+                    
+                    // 呼び出しコール（B-12, I-24のような形式）を表示
+                    const columnNames = ['B', 'I', 'N', 'G', 'O'];
+                    const columnIndex = Math.floor((drawnNumber - 1) / 15);
+                    const callText = `${columnNames[columnIndex]}-${drawnNumber}`;
+                    document.getElementById('call-display').textContent = callText;
+                    
+                    // ローカルストレージに保存
+                    saveToLocalStorage();
+                    
+                } catch (error) {
+                    console.error(error);
+                    alert('ハッシュの計算中にエラーが発生しました');
+                }
+            });
+            
+            // Enterキーでも実行できるようにする
+            document.getElementById('keyword-input').addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    document.getElementById('generate-btn').click();
+                }
+            });
+            
+            // リセットボタンのイベントリスナー
+            document.getElementById('reset-btn').addEventListener('click', function() {
+                if (confirm('ゲームをリセットしますか？すべての履歴が消去されます。')) {
+                    // 状態をリセット
+                    availableNumbers = Array.from({length: 75}, (_, i) => i + 1);
+                    drawnNumbers = [];
+                    
+                    // 表示をリセット
+                    document.getElementById('current-number').textContent = '--';
+                    document.getElementById('keyword-display').textContent = '';
+                    document.getElementById('call-display').textContent = '';
+                    document.getElementById('history-drawn').textContent = '';
+                    
+                    // ビンゴボードをリセット
+                    document.querySelectorAll('.bingo-cell').forEach(cell => {
+                        cell.classList.remove('drawn');
+                    });
+                    
+                    // ローカルストレージをクリア
+                    localStorage.removeItem('bingoAvailableNumbers');
+                    localStorage.removeItem('bingoDrawnNumbers');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
