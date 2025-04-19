@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>グリコ・チョコレート・パイナップル</title>
+    <style>
+        body {
+            font-family: 'Meiryo', 'Hiragino Kaku Gothic ProN', sans-serif;
+            background-color: #f0f8ff;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        h1 {
+            color: #ff6b6b;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        .description {
+            max-width: 600px;
+            margin-bottom: 20px;
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .game-container {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            max-width: 800px;
+        }
+        
+        .stairs-container {
+            display: flex;
+            width: 100%;
+        }
+        
+        .stairs {
+            display: flex;
+            flex-direction: column-reverse;
+            width: 45%;
+            margin: 0 10px;
+        }
+        
+        .stair {
+            height: 25px;
+            margin: 2px 0;
+            background-color: #e0e0e0;
+            border: 1px solid #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .player {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            position: absolute;
+            top: -15px;
+            left: 10px;
+            z-index: 10;
+        }
+        
+        .user-player {
+            background-color: #4dabf7;
+        }
+        
+        .cpu-player {
+            background-color: #ff8787;
+        }
+        
+        .controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 600px;
+        }
+        
+        .janken-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #4dabf7;
+            color: white;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #339af0;
+        }
+        
+        .result {
+            font-size: 18px;
+            font-weight: bold;
+            min-height: 50px;
+            text-align: center;
+        }
+        
+        .win-message {
+            color: #2b8a3e;
+            font-size: 24px;
+            text-align: center;
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #d3f9d8;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .player-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .position-display {
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+        }
+        
+        .reset-button {
+            margin-top: 15px;
+            background-color: #ff6b6b;
+        }
+        
+        .reset-button:hover {
+            background-color: #fa5252;
+        }
+    </style>
+</head>
+<body>
+    <h1>グリコ・チョコレート・パイナップル</h1>
+    
+    <div class="description">
+        <p><strong>遊び方:</strong> じゃんけんで勝つと、出した手によって階段を上ることができます。</p>
+        <ul>
+            <li>グー → グリコ (3段上る)</li>
+            <li>チョキ → チョコレート (6段上る)</li>
+            <li>パー → パイナップル (6段上る)</li>
+        </ul>
+        <p>先に階段の上まで到達した方が勝ちです！</p>
+    </div>
+    
+    <div class="position-display">
+        <div class="player-name">あなた: <span id="user-position">0</span>段目</div>
+        <div class="player-name">CPU: <span id="cpu-position">0</span>段目</div>
+    </div>
+    
+    <div class="game-container">
+        <div class="stairs-container">
+            <div class="stairs" id="user-stairs">
+                <!-- 階段はJSで生成 -->
+            </div>
+            
+            <div class="stairs" id="cpu-stairs">
+                <!-- 階段はJSで生成 -->
+            </div>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <div class="result" id="result-display">じゃんけんの手を選んでください！</div>
+        
+        <div class="janken-buttons">
+            <button id="rock">グー</button>
+            <button id="scissors">チョキ</button>
+            <button id="paper">パー</button>
+        </div>
+        
+        <button class="reset-button" id="reset-game">ゲームをリセット</button>
+    </div>
+    
+    <div class="win-message" id="win-message"></div>
+    
+    <script>
+        // 定数
+        const TOTAL_STAIRS = 20;
+        const MOVES = {
+            rock: { name: 'グリコ', steps: 3 },
+            scissors: { name: 'チョコレート', steps: 6 },
+            paper: { name: 'パイナップル', steps: 6 }
+        };
+        
+        // ゲーム状態
+        let gameState = {
+            userPosition: 0,
+            cpuPosition: 0,
+            isGameOver: false
+        };
+        
+        // DOM要素
+        const userStairs = document.getElementById('user-stairs');
+        const cpuStairs = document.getElementById('cpu-stairs');
+        const userPositionDisplay = document.getElementById('user-position');
+        const cpuPositionDisplay = document.getElementById('cpu-position');
+        const resultDisplay = document.getElementById('result-display');
+        const winMessage = document.getElementById('win-message');
+        const rockBtn = document.getElementById('rock');
+        const scissorsBtn = document.getElementById('scissors');
+        const paperBtn = document.getElementById('paper');
+        const resetBtn = document.getElementById('reset-game');
+        
+        // 階段の初期化
+        function initializeStairs() {
+            userStairs.innerHTML = '';
+            cpuStairs.innerHTML = '';
+            
+            for (let i = 0; i < TOTAL_STAIRS; i++) {
+                const userStair = document.createElement('div');
+                userStair.className = 'stair';
+                userStair.textContent = i + 1;
+                userStairs.appendChild(userStair);
+                
+                const cpuStair = document.createElement('div');
+                cpuStair.className = 'stair';
+                cpuStair.textContent = i + 1;
+                cpuStairs.appendChild(cpuStair);
+            }
+            
+            // プレイヤーの初期位置を設定
+            updatePlayerPositions();
+        }
+        
+        // プレイヤーの位置を更新
+        function updatePlayerPositions() {
+            // 古いプレイヤー要素を削除
+            const oldUserPlayer = document.querySelector('.user-player');
+            const oldCpuPlayer = document.querySelector('.cpu-player');
+            if (oldUserPlayer) oldUserPlayer.remove();
+            if (oldCpuPlayer) oldCpuPlayer.remove();
+            
+            // 新しいプレイヤー要素を追加
+            if (gameState.userPosition < TOTAL_STAIRS) {
+                const userPlayer = document.createElement('div');
+                userPlayer.className = 'player user-player';
+                userStairs.children[gameState.userPosition].appendChild(userPlayer);
+            }
+            
+            if (gameState.cpuPosition < TOTAL_STAIRS) {
+                const cpuPlayer = document.createElement('div');
+                cpuPlayer.className = 'player cpu-player';
+                cpuStairs.children[gameState.cpuPosition].appendChild(cpuPlayer);
+            }
+            
+            // 位置表示を更新
+            userPositionDisplay.textContent = gameState.userPosition;
+            cpuPositionDisplay.textContent = gameState.cpuPosition;
+        }
+        
+        // CPUの手をランダムに選択
+        function getCpuChoice() {
+            const choices = ['rock', 'scissors', 'paper'];
+            const randomIndex = Math.floor(Math.random() * 3);
+            return choices[randomIndex];
+        }
+        
+        // じゃんけんの結果を判定
+        function determineWinner(userChoice, cpuChoice) {
+            if (userChoice === cpuChoice) {
+                return 'draw';
+            } else if (
+                (userChoice === 'rock' && cpuChoice === 'scissors') ||
+                (userChoice === 'scissors' && cpuChoice === 'paper') ||
+                (userChoice === 'paper' && cpuChoice === 'rock')
+            ) {
+                return 'user';
+            } else {
+                return 'cpu';
+            }
+        }
+        
+        // 手の日本語名を取得
+        function getHandName(hand) {
+            if (hand === 'rock') return 'グー';
+            if (hand === 'scissors') return 'チョキ';
+            if (hand === 'paper') return 'パー';
+        }
+        
+        // ゲームの状態をチェック
+        function checkGameState() {
+            if (gameState.userPosition >= TOTAL_STAIRS) {
+                gameState.isGameOver = true;
+                winMessage.textContent = 'あなたの勝ち！おめでとう！';
+                winMessage.style.display = 'block';
+                disableButtons();
+            } else if (gameState.cpuPosition >= TOTAL_STAIRS) {
+                gameState.isGameOver = true;
+                winMessage.textContent = 'CPUの勝ち！次はがんばろう！';
+                winMessage.style.display = 'block';
+                disableButtons();
+            }
+        }
+        
+        // ボタンを無効化
+        function disableButtons() {
+            rockBtn.disabled = true;
+            scissorsBtn.disabled = true;
+            paperBtn.disabled = true;
+        }
+        
+        // ボタンを有効化
+        function enableButtons() {
+            rockBtn.disabled = false;
+            scissorsBtn.disabled = false;
+            paperBtn.disabled = false;
+        }
+        
+        // じゃんけんプレイ
+        function playJanken(userChoice) {
+            if (gameState.isGameOver) return;
+            
+            const cpuChoice = getCpuChoice();
+            const winner = determineWinner(userChoice, cpuChoice);
+            
+            // 結果表示
+            let resultText = `あなた: ${getHandName(userChoice)} vs CPU: ${getHandName(cpuChoice)}<br>`;
+            
+            if (winner === 'draw') {
+                resultText += 'あいこ！もう一度じゃんけんしてください。';
+            } else if (winner === 'user') {
+                const move = MOVES[userChoice];
+                gameState.userPosition += move.steps;
+                if (gameState.userPosition > TOTAL_STAIRS) gameState.userPosition = TOTAL_STAIRS;
+                resultText += `あなたの勝ち！${move.name}で${move.steps}段上りました！`;
+            } else {
+                const move = MOVES[cpuChoice];
+                gameState.cpuPosition += move.steps;
+                if (gameState.cpuPosition > TOTAL_STAIRS) gameState.cpuPosition = TOTAL_STAIRS;
+                resultText += `CPUの勝ち！${move.name}で${move.steps}段上りました！`;
+            }
+            
+            resultDisplay.innerHTML = resultText;
+            updatePlayerPositions();
+            checkGameState();
+        }
+        
+        // ゲームリセット
+        function resetGame() {
+            gameState = {
+                userPosition: 0,
+                cpuPosition: 0,
+                isGameOver: false
+            };
+            
+            resultDisplay.innerHTML = 'じゃんけんの手を選んでください！';
+            winMessage.style.display = 'none';
+            enableButtons();
+            updatePlayerPositions();
+        }
+        
+        // イベントリスナー
+        rockBtn.addEventListener('click', () => playJanken('rock'));
+        scissorsBtn.addEventListener('click', () => playJanken('scissors'));
+        paperBtn.addEventListener('click', () => playJanken('paper'));
+        resetBtn.addEventListener('click', resetGame);
+        
+        // ゲーム初期化
+        initializeStairs();
+    </script>
+</body>
+</html>
