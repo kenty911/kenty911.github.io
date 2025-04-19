@@ -152,6 +152,106 @@
         .reset-button:hover {
             background-color: #fa5252;
         }
+        
+        /* モーダル関連のスタイル */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .modal {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+            transform: translateY(-20px);
+            transition: transform 0.3s;
+            position: relative;
+        }
+        
+        .modal-overlay.active .modal {
+            transform: translateY(0);
+        }
+        
+        .janken-result {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        
+        .hands-container {
+            display: flex;
+            justify-content: space-around;
+            margin: 30px 0;
+        }
+        
+        .hand {
+            font-size: 60px;
+            animation: handBounce 0.5s;
+        }
+        
+        @keyframes handBounce {
+            0% { transform: translateY(-20px); }
+            50% { transform: translateY(10px); }
+            100% { transform: translateY(0); }
+        }
+        
+        .result-text {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 25px;
+        }
+        
+        .win {
+            color: #2b8a3e;
+        }
+        
+        .lose {
+            color: #e03131;
+        }
+        
+        .draw {
+            color: #495057;
+        }
+        
+        .continue-btn {
+            padding: 10px 20px;
+            background-color: #4dabf7;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .continue-btn:hover {
+            background-color: #339af0;
+        }
+        
+        .move-info {
+            margin-top: 15px;
+            font-size: 16px;
+            color: #495057;
+        }
     </style>
 </head>
 <body>
@@ -198,6 +298,26 @@
     
     <div class="win-message" id="win-message"></div>
     
+    <!-- モーダル -->
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal">
+            <div class="janken-result">じゃんけんの結果</div>
+            <div class="hands-container">
+                <div>
+                    <div class="hand" id="user-hand"></div>
+                    <div>あなた</div>
+                </div>
+                <div>
+                    <div class="hand" id="cpu-hand"></div>
+                    <div>CPU</div>
+                </div>
+            </div>
+            <div class="result-text" id="modal-result"></div>
+            <div class="move-info" id="move-info"></div>
+            <button class="continue-btn" id="continue-btn">続ける</button>
+        </div>
+    </div>
+    
     <script>
         // 定数
         const TOTAL_STAIRS = 20;
@@ -205,6 +325,13 @@
             rock: { name: 'グリコ', steps: 3 },
             scissors: { name: 'チョコレート', steps: 6 },
             paper: { name: 'パイナップル', steps: 6 }
+        };
+        
+        // 手の絵文字
+        const HAND_EMOJIS = {
+            rock: '✊',
+            scissors: '✌️',
+            paper: '✋'
         };
         
         // ゲーム状態
@@ -225,6 +352,14 @@
         const scissorsBtn = document.getElementById('scissors');
         const paperBtn = document.getElementById('paper');
         const resetBtn = document.getElementById('reset-game');
+        
+        // モーダル要素
+        const modalOverlay = document.getElementById('modal-overlay');
+        const userHand = document.getElementById('user-hand');
+        const cpuHand = document.getElementById('cpu-hand');
+        const modalResult = document.getElementById('modal-result');
+        const moveInfo = document.getElementById('move-info');
+        const continueBtn = document.getElementById('continue-btn');
         
         // 階段の初期化
         function initializeStairs() {
@@ -331,6 +466,35 @@
             paperBtn.disabled = false;
         }
         
+        // モーダルを表示
+        function showModal(userChoice, cpuChoice, winner) {
+            userHand.textContent = HAND_EMOJIS[userChoice];
+            cpuHand.textContent = HAND_EMOJIS[cpuChoice];
+            
+            if (winner === 'draw') {
+                modalResult.textContent = 'あいこ！';
+                modalResult.className = 'result-text draw';
+                moveInfo.textContent = 'もう一度選んでください';
+            } else if (winner === 'user') {
+                const move = MOVES[userChoice];
+                modalResult.textContent = 'あなたの勝ち！';
+                modalResult.className = 'result-text win';
+                moveInfo.textContent = `${move.name}で${move.steps}段上ります`;
+            } else {
+                const move = MOVES[cpuChoice];
+                modalResult.textContent = 'CPUの勝ち！';
+                modalResult.className = 'result-text lose';
+                moveInfo.textContent = `CPUが${move.name}で${move.steps}段上ります`;
+            }
+            
+            modalOverlay.classList.add('active');
+        }
+        
+        // モーダルを閉じる
+        function closeModal() {
+            modalOverlay.classList.remove('active');
+        }
+        
         // じゃんけんプレイ
         function playJanken(userChoice) {
             if (gameState.isGameOver) return;
@@ -338,24 +502,24 @@
             const cpuChoice = getCpuChoice();
             const winner = determineWinner(userChoice, cpuChoice);
             
-            // 結果表示
-            let resultText = `あなた: ${getHandName(userChoice)} vs CPU: ${getHandName(cpuChoice)}<br>`;
+            // モーダルで結果表示
+            showModal(userChoice, cpuChoice, winner);
             
-            if (winner === 'draw') {
-                resultText += 'あいこ！もう一度じゃんけんしてください。';
-            } else if (winner === 'user') {
+            // 結果に応じて処理
+            if (winner === 'user') {
                 const move = MOVES[userChoice];
                 gameState.userPosition += move.steps;
                 if (gameState.userPosition > TOTAL_STAIRS) gameState.userPosition = TOTAL_STAIRS;
-                resultText += `あなたの勝ち！${move.name}で${move.steps}段上りました！`;
-            } else {
+                resultDisplay.innerHTML = `あなたの勝ち！${move.name}で${move.steps}段上りました！`;
+            } else if (winner === 'cpu') {
                 const move = MOVES[cpuChoice];
                 gameState.cpuPosition += move.steps;
                 if (gameState.cpuPosition > TOTAL_STAIRS) gameState.cpuPosition = TOTAL_STAIRS;
-                resultText += `CPUの勝ち！${move.name}で${move.steps}段上りました！`;
+                resultDisplay.innerHTML = `CPUの勝ち！${move.name}で${move.steps}段上りました！`;
+            } else {
+                resultDisplay.innerHTML = 'あいこ！もう一度じゃんけんしてください。';
             }
             
-            resultDisplay.innerHTML = resultText;
             updatePlayerPositions();
             checkGameState();
         }
@@ -379,6 +543,7 @@
         scissorsBtn.addEventListener('click', () => playJanken('scissors'));
         paperBtn.addEventListener('click', () => playJanken('paper'));
         resetBtn.addEventListener('click', resetGame);
+        continueBtn.addEventListener('click', closeModal);
         
         // ゲーム初期化
         initializeStairs();
